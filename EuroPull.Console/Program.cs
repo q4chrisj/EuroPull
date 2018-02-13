@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using LibGit2Sharp;
 using LibGit2Sharp.Handlers;
@@ -11,7 +12,7 @@ namespace EuroPull
         static void Main(string[] args)
         {
             var repoUrl = "https://github.com/q4-euro/Solutions.git";
-            var localPath = "./Projects/Solutions/";
+            var localPath = "/users/jonezy/Projects/Solutions/";
 
             Console.WriteLine("Please enter your github.com usename:");
             var username = Console.ReadLine();
@@ -24,9 +25,10 @@ namespace EuroPull
                 CredentialsProvider = (_url, _username, _password) => new UsernamePasswordCredentials { Username = username, Password = password }
             };
 
-            if(!System.IO.File.Exists(localPath)) 
+            var isCloned = Directory.Exists(Path.GetFullPath(localPath));
+            if(!isCloned) 
             {
-                Console.WriteLine("Checking out {0} to {1}", repoUrl, localPath);
+                Console.WriteLine("Checking out {0} to {1}. This may take a few minutes.", repoUrl, localPath);
 
                 Repository.Clone(repoUrl, localPath, cloneOptions);
 
@@ -45,13 +47,13 @@ namespace EuroPull
 
                     foreach (Remote remote in repo.Network.Remotes)
                     {
+                        Console.WriteLine("Fetching updates from {0}", remote.Name);
                         IEnumerable<string> refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
-                        //Commands.Fetch(repo, remote.Name, refSpecs, options, logMessage);
+                        Commands.Fetch(repo, remote.Name, refSpecs, options, logMessage);
                     }
                 }
                 Console.WriteLine(logMessage);
             }
-
         }
     }
 }

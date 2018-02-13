@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using LibGit2Sharp;
 using LibGit2Sharp.Handlers;
 
@@ -11,68 +9,75 @@ namespace EuroPull
     {
         private static string _repoUrl = "https://github.com/q4-euro/Solutions.git";
         private static string _localPath = "/users/jonezy/Projects/Solutions/";
+        private static string _username = "";
+        private static string _password = "";
 
         static void Main(string[] args)
         {
             Console.WriteLine("Please enter your github.com usename:");
-            var username = Console.ReadLine();
+            _username = Console.ReadLine();
 
             Console.WriteLine("Please enter your github.com password:");
-            var password = Console.ReadLine();
-
-            var cloneOptions = new CloneOptions
-            {
-                CredentialsProvider = (_url, _username, _password) => new UsernamePasswordCredentials { Username = username, Password = password }
-            };
+            _password = Console.ReadLine();
 
             var isCloned = Directory.Exists(Path.GetFullPath(_localPath));
             if(!isCloned) 
             {
                 Console.WriteLine("Checking out {0} to {1}. This may take a few minutes.", _repoUrl, _localPath);
 
-                Repository.Clone(_repoUrl, _localPath, cloneOptions);
+                Clone();
 
                 Console.WriteLine("Checkout complete");    
             } else {
-                string logMessage = "";
-
                 Console.WriteLine("Switch to branch: ");
+                var branchName = Console.ReadLine();
 
-                var newBranch = Console.ReadLine();
-
-                ChangeBranch(newBranch ?? "master");
-
-                using (var repo = new Repository(_localPath))
+                if (!string.IsNullOrEmpty(branchName))
                 {
-                    FetchOptions options = new FetchOptions();
-                    options.CredentialsProvider = new CredentialsHandler((url, usernameFromUrl, types) =>
-                        new UsernamePasswordCredentials()
-                        {
-                            Username = username,
-                            Password = password
-                        });
-
-                    foreach (Remote remote in repo.Network.Remotes)
-                    {
-                        Console.WriteLine("Fetching updates from {0}", remote.Name);
-                        IEnumerable<string> refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
-                        Commands.Fetch(repo, remote.Name, refSpecs, options, logMessage);
-                    }
+                    Checkout(branchName);
                 }
-                Console.WriteLine(logMessage);
+
+                Pull();
+                Console.WriteLine("Update complete");
             }
         }
 
-        static void ChangeBranch(string newBranch)
+        private static void Clone()
         {
-            // the master branch friendly name is origin/master
-            // all other branches exclude origin/
-            if (newBranch == "master")
-                newBranch = "origin/master";
-            
-            using (var repo = new Repository(_localPath))
+            var cloneOptions = new CloneOptions
             {
-                var branch = repo.Branches[newBranch];
+                CredentialsProvider = (url, username, password) => new UsernamePasswordCredentials { Username = _username, Password = _password }
+            };
+
+            Repository.Clone(_repoUrl, _localPath, cloneOptions);
+        }
+
+        private static void Pull()
+        {
+            using(Repository repo = new Repository(_localPath))
+            {
+                PullOptions options = new PullOptions
+                {
+                    FetchOptions = new FetchOptions()
+                };
+                options.FetchOptions.CredentialsProvider = new CredentialsHandler(
+                    (url, usernameFromUrl, types) =>
+                    new UsernamePasswordCredentials()
+                    {
+                        Username = _username,
+                        Password = _password
+                    }
+                );
+
+                Commands.Pull(repo, new Signature("guest", "guest", new DateTimeOffset(DateTime.Now)), options);
+            }
+        }
+
+        private static void Checkout(string branchName)
+        {
+            using (Repository repo = new Repository(_localPath))
+            {
+                var branch = repo.Branches[branchName];
                 if (branch == null)
                     return;
                 
